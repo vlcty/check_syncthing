@@ -1,0 +1,206 @@
+#!/usr/bin/perl
+# check_syncthing - Monitor you syncthing daemon
+# Copyright (C) 2015 Josef 'veloc1ty' Stautner (hello@veloc1ty.de)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use strict;
+use LWP::UserAgent;
+use JSON;
+use Getopt::Long;
+
+our $DEBUG = 0;
+our $ARG_API_URL = '';
+our $ARG_HTTP_USER = '';
+our $ARG_HTTP_PASS = '';
+
+our $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = 0;
+our $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = 1;
+
+sub printDebugLog {
+    printf("Debug: %s\n", shift) if ( $ENV{'DEBUG'} == 1 || $DEBUG == 1 );
+}
+
+sub exitCritical {
+    printf("CRITICAL - %s\n", shift);
+    exit(2);
+}
+
+sub exitUnknown {
+    printf("UNKNOWN - %s\n", shift);
+    exit(3);
+}
+
+sub parseArguments {
+    GetOptions(
+        'syncthing-url=s' => \$ARG_API_URL,
+        'http-user=s' => \$ARG_HTTP_USER,
+        'http-pass=s' => \$ARG_HTTP_PASS,
+        'min-connected-endpoints-warn=i' => \$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
+        'min-connected-endpoints-crit=i' => \$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT,
+        'debug' => \$DEBUG
+    );
+
+    exitUnknown('--syncthing-url not provided') if ( length($ARG_API_URL) == 0 );
+    exitUnknown('--syncthing-url not valid') if ( $ARG_API_URL !~ /^(http|https).*$/ );
+
+    if ( $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN < $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT ) {
+        exitUnknown('Minimum connected endpoints warn value is smaller than critical value');
+    }
+
+    printDebugLog('\$ARG_API_URL = ' . $ARG_API_URL);
+    printDebugLog('\$ARG_HTTP_USER = ' . $ARG_HTTP_USER);
+    printDebugLog('\$ARG_HTTP_PASS = ' . $ARG_HTTP_PASS);
+    printDebugLog('\$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = ' . $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT);
+    printDebugLog('\$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = ' . $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN);
+}
+
+sub prepareUserAgent {
+    my $userAgent = LWP::UserAgent->new(
+        'agent' => 'check_syncthing',
+        'timeout' => 10
+    );
+
+    if ( length($ARG_HTTP_USER) != 0 ) {
+        printDebugLog('Using HTTP basic Auth');
+
+        my $uri = '';
+
+        if ( $ARG_API_URL =~ /^https/ ) {
+            $uri = $ARG_API_URL . ':443';
+        }
+        else {
+            $uri = $ARG_API_URL . ':80';
+        }
+
+        $uri =~ s/^(http|https)\:\/\///;
+
+        $userAgent->credentials($uri,
+            'Authorization Required',
+            $ARG_HTTP_USER,
+            $ARG_HTTP_PASS);
+    }
+
+    $userAgent->ssl_opts( verify_hostname => 0 ,SSL_verify_mode => 0x00);
+
+    return $userAgent;
+}
+
+sub getConnectedEndpointStats {
+    my $userAgent = shift;
+    my $knownEndpoints = 0; # 1 because the current daemon is always included
+    my $connectedEndpoints = 0;
+
+    my $response = $userAgent->get(sprintf('%s/rest/system/connections',
+        $ARG_API_URL));
+
+    if ( $response->is_success ) {
+        my $content = decode_json($response->decoded_content);
+
+        foreach my $currentConnection ( keys %{$content->{'connections'}} ) {
+            $knownEndpoints++;
+
+            # Is the device connected?
+            if ( $content->{'connections'}
+                ->{$currentConnection}->{'connected'} == JSON::true ) {
+                    $connectedEndpoints++;
+                }
+        }
+
+        # Decrement $knownEndpoints by 1 because the current syncthing
+        # instance is listet as a client
+        $knownEndpoints--;
+
+        printDebugLog('Amount known endpoints: ' . $knownEndpoints);
+        printDebugLog('Amount connected endpoints: ' . $connectedEndpoints);
+
+        return $knownEndpoints, $connectedEndpoints;
+    }
+    else {
+        exitCritical(sprintf('HTTP Code: %d - Failed to read API response',
+            $response->status_line));
+    }
+}
+
+sub getErrorLogCount {
+    my $userAgent = shift;
+    my $logEntries = 0;
+
+    my $response = $userAgent->get(sprintf('%s/rest/system/error',
+        $ARG_API_URL));
+
+    if ( $response->is_success ) {
+        my $content = decode_json($response->decoded_content);
+
+        $logEntries = scalar($content->{'errors'});
+
+        $logEntries = 0 if ( $logEntries == undef );
+
+        printDebugLog('Error log count: ' . $logEntries);
+
+        return $logEntries;
+    }
+    else {
+        exitCritical(sprintf('HTTP Code: %d - Failed to read API response',
+            $response->status_line));
+    }
+}
+
+sub main {
+    parseArguments();
+
+    my $userAgent = prepareUserAgent();
+    my ($knownEndpoints,$connectedEndpoints) = getConnectedEndpointStats($userAgent);
+    my $errorLogEntries = getErrorLogCount($userAgent);
+
+    # Build performance data string
+    my $performanceData = sprintf('|errorLogEntries=%d knownEndpoints=%d ' .
+        'connectedEndpoints=%d;%d;%d',
+        $errorLogEntries,
+        $knownEndpoints,
+        $connectedEndpoints,
+        $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
+        $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT);
+
+    # Check limits
+    if ( $errorLogEntries > 0 ) {
+        printf("WARNING - Error log contains %d entries%s\n",
+            $errorLogEntries,
+            $performanceData);
+        exit(1);
+    }
+
+    if ( $connectedEndpoints < $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT ) {
+        exitCritical(sprintf("%d of %d endpoints are connected. Minimum is %d%s",
+            $connectedEndpoints,
+            $knownEndpoints,
+            $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT,
+            $performanceData));
+    }
+    elsif ( $connectedEndpoints < $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN ) {
+        printf("WARNING - %d of %d endpoints are connected. Minimum is %d%s\n",
+            $connectedEndpoints,
+            $knownEndpoints,
+            $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
+            $performanceData)
+    }
+    else {
+        printf("OK - %d of %d endpoints are connected%s\n",
+            $connectedEndpoints,
+            $knownEndpoints,
+            $performanceData);
+    }
+}
+
+main();
