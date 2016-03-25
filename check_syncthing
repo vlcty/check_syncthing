@@ -96,7 +96,7 @@ sub prepareUserAgent {
 
 sub getConnectedEndpointStats {
     my $userAgent = shift;
-    my $knownEndpoints = 0; # 1 because the current daemon is always included
+    my $knownEndpoints = 0;
     my $connectedEndpoints = 0;
 
     my $response = $userAgent->get(sprintf('%s/rest/system/connections',
