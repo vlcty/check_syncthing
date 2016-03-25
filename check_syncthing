@@ -47,7 +47,9 @@ sub parseArguments {
         'min-connected-endpoints-crit=i' =>
             \$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT
     );
+}
 
+sub validateArguments {
     if ( length($ARG_API_URL) == 0 ) {
         exitUnknown('--syncthing-url not provided');
     }
