@@ -129,6 +129,7 @@ sub getConnectedEndpointStats {
 
 sub main {
     parseArguments();
+    validateArguments();
 
     my $userAgent = prepareUserAgent();
     my ($knownEndpoints,$connectedEndpoints) =
