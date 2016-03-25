@@ -156,7 +156,9 @@ sub main {
             $connectedEndpoints,
             $knownEndpoints,
             $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
-            $performanceData)
+            $performanceData);
+
+        exit(1);
     }
     else {
         printf("OK - %d of %d endpoints are connected%s\n",
