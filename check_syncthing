@@ -144,55 +144,22 @@ sub getConnectedEndpointStats {
     }
 }
 
-sub getErrorLogCount {
-    my $userAgent = shift;
-    my $logEntries = 0;
-
-    my $response = $userAgent->get(sprintf('%s/rest/system/error',
-        $ARG_API_URL));
-
-    if ( $response->is_success ) {
-        my $content = decode_json($response->decoded_content);
-
-        $logEntries = scalar($content->{'errors'});
-
-        $logEntries = 0 if ( $logEntries == undef );
-
-        printDebugLog('Error log count: ' . $logEntries);
-
-        return $logEntries;
-    }
-    else {
-        exitCritical(sprintf('HTTP Code: %d - Failed to read API response',
-            $response->status_line));
-    }
-}
-
 sub main {
     parseArguments();
 
     my $userAgent = prepareUserAgent();
     my ($knownEndpoints,$connectedEndpoints) =
         getConnectedEndpointStats($userAgent);
-    my $errorLogEntries = getErrorLogCount($userAgent);
 
     # Build performance data string
-    my $performanceData = sprintf('|errorLogEntries=%d knownEndpoints=%d ' .
+    my $performanceData = sprintf('|knownEndpoints=%d ' .
         'connectedEndpoints=%d;%d;%d',
-        $errorLogEntries,
         $knownEndpoints,
         $connectedEndpoints,
         $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
         $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT);
 
     # Check limits
-    if ( $errorLogEntries > 0 ) {
-        printf("WARNING - Error log contains %d entries%s\n",
-            $errorLogEntries,
-            $performanceData);
-        exit(1);
-    }
-
     if ( $connectedEndpoints < $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT ) {
         exitCritical(
             sprintf("%d of %d endpoints are connected. Minimum is %d%s",
