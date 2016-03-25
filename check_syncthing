@@ -20,17 +20,12 @@ use LWP::UserAgent;
 use JSON;
 use Getopt::Long;
 
-our $DEBUG = 0;
 our $ARG_API_URL = '';
 our $ARG_HTTP_USER = '';
 our $ARG_HTTP_PASS = '';
 
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = 0;
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = 1;
-
-sub printDebugLog {
-    printf("Debug: %s\n", shift) if ( $ENV{'DEBUG'} == 1 || $DEBUG == 1 );
-}
 
 sub exitCritical {
     printf("CRITICAL - %s\n", shift);
@@ -50,8 +45,7 @@ sub parseArguments {
         'min-connected-endpoints-warn=i' =>
             \$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
         'min-connected-endpoints-crit=i' =>
-            \$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT,
-        'debug' => \$DEBUG
+            \$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT
     );
 
     if ( length($ARG_API_URL) == 0 ) {
@@ -67,14 +61,6 @@ sub parseArguments {
         exitUnknown('Minimum connected endpoints warn value is smaller ' .
             'than critical value');
     }
-
-    printDebugLog('\$ARG_API_URL = ' . $ARG_API_URL);
-    printDebugLog('\$ARG_HTTP_USER = ' . $ARG_HTTP_USER);
-    printDebugLog('\$ARG_HTTP_PASS = ' . $ARG_HTTP_PASS);
-    printDebugLog('\$LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = ' .
-        $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT);
-    printDebugLog('\$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = ' .
-        $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN);
 }
 
 sub prepareUserAgent {
@@ -84,8 +70,6 @@ sub prepareUserAgent {
     );
 
     if ( length($ARG_HTTP_USER) != 0 ) {
-        printDebugLog('Using HTTP basic Auth');
-
         my $uri = '';
 
         if ( $ARG_API_URL =~ /^https/ ) {
@@ -132,9 +116,6 @@ sub getConnectedEndpointStats {
         # Decrement $knownEndpoints by 1 because the current syncthing
         # instance is listet as a client
         $knownEndpoints--;
-
-        printDebugLog('Amount known endpoints: ' . $knownEndpoints);
-        printDebugLog('Amount connected endpoints: ' . $connectedEndpoints);
 
         return $knownEndpoints, $connectedEndpoints;
     }
