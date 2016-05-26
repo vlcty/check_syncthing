@@ -21,8 +21,7 @@ use JSON;
 use Getopt::Long;
 
 our $ARG_API_URL = '';
-our $ARG_HTTP_USER = '';
-our $ARG_HTTP_PASS = '';
+our $ARG_API_KEY = '';
 
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = 0;
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = 1;
@@ -40,8 +39,7 @@ sub exitUnknown {
 sub parseArguments {
     GetOptions(
         'syncthing-url=s' => \$ARG_API_URL,
-        'http-user=s' => \$ARG_HTTP_USER,
-        'http-pass=s' => \$ARG_HTTP_PASS,
+        'api-key=s' => \$ARG_API_KEY,
         'min-connected-endpoints-warn=i' =>
             \$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
         'min-connected-endpoints-crit=i' =>
@@ -58,6 +56,10 @@ sub validateArguments {
         exitUnknown('--syncthing-url not valid')
     }
 
+    if ( length($ARG_API_KEY) == 0 ) {
+        exitUnknown('--api-key not given');
+    }
+
     if ( $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN <
         $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT ) {
         exitUnknown('Minimum connected endpoints warn value is smaller ' .
@@ -71,25 +73,8 @@ sub prepareUserAgent {
         'timeout' => 10
     );
 
-    if ( length($ARG_HTTP_USER) != 0 ) {
-        my $uri = '';
-
-        if ( $ARG_API_URL =~ /^https/ ) {
-            $uri = $ARG_API_URL . ':443';
-        }
-        else {
-            $uri = $ARG_API_URL . ':80';
-        }
-
-        $uri =~ s/^(http|https)\:\/\///;
-
-        $userAgent->credentials($uri,
-            'Authorization Required',
-            $ARG_HTTP_USER,
-            $ARG_HTTP_PASS);
-    }
-
     $userAgent->ssl_opts( verify_hostname => 0 ,SSL_verify_mode => 0x00);
+    $userAgent->default_header( 'X-API-Key' => $ARG_API_KEY );
 
     return $userAgent;
 }
