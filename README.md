@@ -23,15 +23,8 @@ The script takes the following arguments
 CheckCommand Variable | Plugin Argument | Required | Description
 ----------------------|-----------------|----------|------------
 syncthing_url | --syncthing-url | yes | The URL to syncthing. For example: https://sync.veloc1ty.lan
-syncthing_http_user | --http-user | no | The HTTP Basic auth user
-syncthing_http_pass | --http-pass | no | The HTTP Basic auth password
+syncthing_api_key | --api-key | yes | Your API key from the settings menu
 syncthing_min_connected_endpoints_warn | --min-connected-endpoints-warn | no | Minimum connected endpoints. If below trigger WARNING. Default: 1
 syncthing_min_connected_endpoints_crit | --min-connected-endpoints-crit | no | Minimum connected endpoints. If below trigger CRITICAL. Default: 0
 
 Note: The URL is without the trailing '/'
-
-# HTTP Basic Authentification #
-
-Some Syncthing applications needs HTTP Basic Auth before a query can be sent.
-
-Set the ```syncthing_http_user``` or ```syncthing_http_pass``` argument to enable authentification.
