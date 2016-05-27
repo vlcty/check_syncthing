@@ -34,7 +34,7 @@ Note: The URL is without the trailing '/'
 
 # Examples
 
-# Example 1: Check the overall connected endpoints
+## Example 1: Check the overall connected endpoints
 
 Let's say you want to monitor how many devices are conencted. A call could look like this:
 
@@ -46,7 +46,7 @@ It would be WARNING when only one device is connected and be CRITICAL if no devi
 
 You can adjust the limits with ```----min-connected-endpoints-warn``` and ```--min-connected-endpoints-crit```.
 
-# Example 2: Check if a specific device is connected
+## Example 2: Check if a specific device is connected
 
 This mode checks the connection state of a single device. This mode can be forced by using ```--device-id```. A call could look like:
 
