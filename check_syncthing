@@ -27,6 +27,11 @@ our $ARG_SPECIFIC_DEVICE_ID = '';
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = 0;
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = 1;
 
+sub exitOK {
+    printf("OK - %s\n", shift);
+    exit(0);
+}
+
 sub exitCritical {
     printf("CRITICAL - %s\n", shift);
     exit(2);
@@ -151,10 +156,10 @@ sub getConnectedEndpointStats {
         exit(1);
     }
     else {
-        printf("OK - %d of %d endpoints are connected%s\n",
+        exitOK(sprintf('%d of %d endpoints are connected%s',
             $connectedEndpoints,
             $knownEndpoints,
-            $performanceData);
+            $performanceData));
     }
 }
 
@@ -166,8 +171,8 @@ sub getSingleDeviceStat {
         my $endpoint = $connections->{$ARG_SPECIFIC_DEVICE_ID};
 
         if ( $endpoint->{'connected'} == JSON::true) {
-            printf("OK - Device %s is connected\n", $ARG_SPECIFIC_DEVICE_ID);
-            exit(0);
+            exitOK(sprintf('Device %s is connected',
+                $ARG_SPECIFIC_DEVICE_ID));
         }
         else {
             exitCritical(sprintf('Device %s is NOT connected',
@@ -178,8 +183,6 @@ sub getSingleDeviceStat {
         exitCritical(sprintf('Device %s is not known on this node',
             $ARG_SPECIFIC_DEVICE_ID));
     }
-
-    #( $connections->{$currentConnection}->{'connected'} == JSON::true )
 }
 
 sub main {
