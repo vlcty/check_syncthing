@@ -22,6 +22,7 @@ use Getopt::Long;
 
 our $ARG_API_URL = '';
 our $ARG_API_KEY = '';
+our $ARG_SPECIFIC_DEVICE_ID = '';
 
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_CRIT = 0;
 our $LIMIT_MIN_CONNECTED_ENDPOINTS_WARN = 1;
@@ -40,6 +41,7 @@ sub parseArguments {
     GetOptions(
         'syncthing-url=s' => \$ARG_API_URL,
         'api-key=s' => \$ARG_API_KEY,
+        'device-id=s' => \$ARG_SPECIFIC_DEVICE_ID,
         'min-connected-endpoints-warn=i' =>
             \$LIMIT_MIN_CONNECTED_ENDPOINTS_WARN,
         'min-connected-endpoints-crit=i' =>
@@ -65,6 +67,11 @@ sub validateArguments {
         exitUnknown('Minimum connected endpoints warn value is smaller ' .
             'than critical value');
     }
+
+    if ( length($ARG_SPECIFIC_DEVICE_ID) != 0 &&
+        $ARG_SPECIFIC_DEVICE_ID !~ /(\w{7}-){7}\w{7}/ ) {
+            exitUnknown('Device ID is not valid');
+    }
 }
 
 sub prepareUserAgent {
@@ -79,46 +86,43 @@ sub prepareUserAgent {
     return $userAgent;
 }
 
-sub getConnectedEndpointStats {
+sub getAllKnownDevices {
     my $userAgent = shift;
-    my $knownEndpoints = 0;
-    my $connectedEndpoints = 0;
+    my $connections = undef;
 
     my $response = $userAgent->get(sprintf('%s/rest/system/connections',
         $ARG_API_URL));
 
     if ( $response->is_success ) {
         my $content = decode_json($response->decoded_content);
-
-        foreach my $currentConnection ( keys %{$content->{'connections'}} ) {
-            $knownEndpoints++;
-
-            # Is the device connected?
-            if ( $content->{'connections'}
-                ->{$currentConnection}->{'connected'} == JSON::true ) {
-                    $connectedEndpoints++;
-                }
-        }
-
-        # Decrement $knownEndpoints by 1 because the current syncthing
-        # instance is listet as a client
-        $knownEndpoints--;
-
-        return $knownEndpoints, $connectedEndpoints;
+        $connections = $content->{'connections'};
     }
     else {
         exitCritical(sprintf('HTTP Code: %d - Failed to read API response',
             $response->status_line));
     }
+
+    return $connections;
 }
 
-sub main {
-    parseArguments();
-    validateArguments();
+sub getConnectedEndpointStats {
+    my $userAgent = shift;
+    my $knownEndpoints = 0;
+    my $connectedEndpoints = 0;
+    my $connections = getAllKnownDevices($userAgent);
 
-    my $userAgent = prepareUserAgent();
-    my ($knownEndpoints,$connectedEndpoints) =
-        getConnectedEndpointStats($userAgent);
+    foreach my $currentConnection ( keys %{$connections} ) {
+        $knownEndpoints++;
+
+        # Is the device connected?
+        if ( $connections->{$currentConnection}->{'connected'} == JSON::true ) {
+                $connectedEndpoints++;
+        }
+    }
+
+    # Decrement $knownEndpoints by 1 because the current syncthing
+    # instance is listet as a client
+    $knownEndpoints--;
 
     # Build performance data string
     my $performanceData = sprintf('|knownEndpoints=%d ' .
@@ -151,6 +155,44 @@ sub main {
             $connectedEndpoints,
             $knownEndpoints,
             $performanceData);
+    }
+}
+
+sub getSingleDeviceStat {
+    my $userAgent = shift;
+    my $connections = getAllKnownDevices($userAgent);
+
+    if ( exists($connections->{$ARG_SPECIFIC_DEVICE_ID}) ) {
+        my $endpoint = $connections->{$ARG_SPECIFIC_DEVICE_ID};
+
+        if ( $endpoint->{'connected'} == JSON::true) {
+            printf("OK - Device %s is connected\n", $ARG_SPECIFIC_DEVICE_ID);
+            exit(0);
+        }
+        else {
+            exitCritical(sprintf('Device %s is NOT connected',
+                $ARG_SPECIFIC_DEVICE_ID));
+        }
+    }
+    else {
+        exitCritical(sprintf('Device %s is not known on this node',
+            $ARG_SPECIFIC_DEVICE_ID));
+    }
+
+    #( $connections->{$currentConnection}->{'connected'} == JSON::true )
+}
+
+sub main {
+    parseArguments();
+    validateArguments();
+
+    my $userAgent = prepareUserAgent();
+
+    if ( length($ARG_SPECIFIC_DEVICE_ID) == 0 ) {
+        getConnectedEndpointStats($userAgent);
+    }
+    else {
+        getSingleDeviceStat($userAgent);
     }
 }
 
