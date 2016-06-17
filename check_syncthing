@@ -232,7 +232,6 @@ sub getSingleDeviceStat {
                         $folderSyncingString .= $currentFolder . ',';
                     }
             }
-
             chop($folderSyncingString);
 
             if ( length($folderSyncingString) == 0 ) {
