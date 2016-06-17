@@ -224,7 +224,6 @@ sub getSingleDeviceStat {
         my $endpoint = $connections->{$ARG_SPECIFIC_DEVICE_ID};
 
         if ( $endpoint->{'connected'} == JSON::true) {
-            # Check sync states
             my $folderSyncingString = '';
 
             foreach my $currentFolder ( getFoldersForClient() ) {
