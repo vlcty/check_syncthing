@@ -10,6 +10,18 @@ You can use it in two ways:
 * Overall mode: Monitor overall connected devices and warn if they go under a specific limit
 * Specific device: Monitor if a specific device is configured and connected
 
+It produces output like:
+
+```
+OK - 3 of 8 endpoints are connected
+```
+
+or
+
+```
+OK - Device AAAAAA-IADQBQT-7J5YROQ-3JMJAV7-S5QUAMF-LF4DV3P-N4MU3KL-XXXXXX is connected and in sync
+```
+
 This plugin is developed according to the "Nagios Developer Guidelines" which can be found here: https://nagios-plugins.org/doc/guidelines.html
 
 Therefore it can be used by any monitoring systems which claims to be Nagios compatible.
@@ -18,9 +30,39 @@ Therefore it can be used by any monitoring systems which claims to be Nagios com
 
 A suitable CheckCommand for Icinga 2 can be found in ```icinga2_checkCommand.conf```.
 
+The integration is really simple. I've added a hash in my syncthing "master" host definition containing the node name as key and the device ID in the body.
+
+```
+vars.syncthing["dns1"] = {
+    syncthing_device_id = "thedeviceidofdns1"
+}
+
+vars.syncthing["homeserver"] = {
+    syncthing_device_id = "thedeviceidofmyhomeserver"
+}
+```
+
+It's then very easy to build a apply rule to match that entries.
+
+```
+apply Service "syncthing-" for ( node => config in host.vars.syncthing ) {
+    import "15minute-service"
+    import "notification-enabled"
+    import "no-perfdata"
+
+    display_name = "Syncthing: " + node
+    check_command = "syncthing"
+    command_endpoint = NodeName
+
+    vars.syncthing_url = "https://mysyncthingserver"
+    vars.syncthing_api_key = "myapikey"
+    vars += config
+}
+```
+
 # Plugin arguments
 
-The script takes the following arguments
+To integrate it in other systems here are the command line argument the script takes:
 
 CheckCommand Variable | Plugin Argument | Required | Description
 ----------------------|-----------------|----------|------------
