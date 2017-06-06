@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # check_syncthing - Monitor you syncthing daemon
-# Copyright (C) 2016 Josef 'veloc1ty' Stautner (hello@veloc1ty.de)
+# Copyright (C) 2016-2017 Josef 'veloc1ty' Stautner (hello@veloc1ty.de)
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
