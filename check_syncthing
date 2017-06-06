@@ -17,6 +17,7 @@
 
 use strict;
 use LWP::UserAgent;
+use LWP::Protocol::https;
 use JSON;
 use Getopt::Long;
 use Data::Dumper;
