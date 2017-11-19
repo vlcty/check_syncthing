@@ -240,7 +240,7 @@ sub getSingleDeviceStat {
             }
             else {
                 exitWarning(sprintf('Device %s is connected but not in sync',
-                    'ARG_SPECIFIC_DEVICE_ID'));
+                    $ARG_SPECIFIC_DEVICE_ID));
             }
         }
         else {
